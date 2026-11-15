@@ -12,6 +12,11 @@ not issue, attenuate, authorize with, serialize, or revoke authority. Those
 operations require separate authority-bearing CLI contracts and confirmation
 laws before they can be added safely.
 
+Interactive mode pages through bounded redacted grant and decision summaries
+with `n` and `p`. Handles remain service-local references, not credentials or
+exported grant material. Headless mode emits only the first bounded page and
+truthfully reports whether more entries exist.
+
 ```sh
 cargo run -p aegis-tui-cli -- capabilities
 cargo run -p aegis-tui-cli -- headless /path/to/aegis.sock

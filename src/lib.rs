@@ -5,7 +5,8 @@ use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, sync_channel};
 
 use aegis_client::{ReadOnlyClient, ServicePort};
 use aegis_protocol::{
-    AuthorityStatusV1, DecisionSummaryV1, GrantSummaryV1, OutcomeV1, ReplyV1, SessionHandleV1,
+    AuthorityStatusV1, DecisionHandleV1, DecisionSummaryV1, GrantHandleV1, GrantSummaryV1,
+    OutcomeV1, ReplyV1, SessionHandleV1,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
@@ -15,7 +16,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-pub const PAGE_LIMIT: usize = 16;
+pub const PAGE_LIMIT: usize = 4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CapabilityManifest {
@@ -35,6 +36,8 @@ pub const CAPABILITIES: CapabilityManifest = CapabilityManifest {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Input {
     Refresh,
+    NextPage,
+    PreviousPage,
     Close,
 }
 
@@ -50,6 +53,8 @@ pub fn translate_key(key: KeyEvent) -> Option<Input> {
     }
     match key.code {
         KeyCode::Char('r') => Some(Input::Refresh),
+        KeyCode::Char('n') => Some(Input::NextPage),
+        KeyCode::Char('p') => Some(Input::PreviousPage),
         KeyCode::Char('q') => Some(Input::Close),
         _ => None,
     }
@@ -62,15 +67,32 @@ pub struct Observation {
     pub more_grants: bool,
     pub decisions: Vec<DecisionSummaryV1>,
     pub more_decisions: bool,
+    pub next_grants: Option<GrantHandleV1>,
+    pub next_decisions: Option<DecisionHandleV1>,
+}
+
+#[derive(Clone, Copy)]
+enum PageCursor<T> {
+    Start,
+    After(T),
+    Exhausted,
+}
+
+#[derive(Clone, Copy)]
+struct Request {
+    grants: PageCursor<GrantHandleV1>,
+    decisions: PageCursor<DecisionHandleV1>,
 }
 
 struct WorkerReply(Result<Observation, String>);
 
 pub struct Component {
-    refresh: SyncSender<()>,
+    refresh: SyncSender<Request>,
     replies: Receiver<WorkerReply>,
     pending: bool,
     observation: Option<Observation>,
+    page: Request,
+    history: Vec<Request>,
     notice: String,
 }
 
@@ -86,8 +108,11 @@ impl Component {
             let Ok(mut client) = ReadOnlyClient::new(session, port, PAGE_LIMIT) else {
                 return;
             };
-            while rx.recv().is_ok() {
-                if reply_tx.send(WorkerReply(observe(&mut client))).is_err() {
+            while let Ok(request) = rx.recv() {
+                if reply_tx
+                    .send(WorkerReply(observe_page(&mut client, request)))
+                    .is_err()
+                {
                     break;
                 }
             }
@@ -97,6 +122,11 @@ impl Component {
             replies: reply_rx,
             pending: false,
             observation: None,
+            page: Request {
+                grants: PageCursor::Start,
+                decisions: PageCursor::Start,
+            },
+            history: Vec::new(),
             notice: "Aegis ready; refresh queued".into(),
         };
         component.offer();
@@ -135,6 +165,37 @@ impl Component {
                 self.offer();
                 Lifecycle::Running
             }
+            Input::NextPage => {
+                if let Some(observation) = &self.observation {
+                    if observation.next_grants.is_none() && observation.next_decisions.is_none() {
+                        self.notice = "Last authority page".into();
+                    } else if !self.pending {
+                        let next = Request {
+                            grants: observation
+                                .next_grants
+                                .map_or(PageCursor::Exhausted, PageCursor::After),
+                            decisions: observation
+                                .next_decisions
+                                .map_or(PageCursor::Exhausted, PageCursor::After),
+                        };
+                        self.history.push(self.page);
+                        self.page = next;
+                        self.offer();
+                    }
+                }
+                Lifecycle::Running
+            }
+            Input::PreviousPage => {
+                if self.pending {
+                    self.notice = "Aegis refresh already pending".into();
+                } else if let Some(previous) = self.history.pop() {
+                    self.page = previous;
+                    self.offer();
+                } else {
+                    self.notice = "First authority page".into();
+                }
+                Lifecycle::Running
+            }
         }
     }
 
@@ -150,6 +211,10 @@ impl Component {
             || vec![Line::from("No current authority observation")],
             |value| {
                 let mut lines = vec![
+                    Line::from(format!(
+                        "page: {} (n next / p previous)",
+                        self.history.len() + 1
+                    )),
                     Line::from(format!("epoch: {}", value.status.epoch)),
                     Line::from(format!("active grants: {}", value.status.active_grants)),
                     Line::from(format!(
@@ -197,7 +262,7 @@ impl Component {
     fn offer(&mut self) {
         if self.pending {
             self.notice = "Aegis refresh already pending".into();
-        } else if self.refresh.try_send(()).is_ok() {
+        } else if self.refresh.try_send(self.page).is_ok() {
             self.pending = true;
             self.notice = "Aegis refresh pending".into();
         } else {
@@ -207,38 +272,71 @@ impl Component {
 }
 
 pub fn observe<P: ServicePort>(client: &mut ReadOnlyClient<P>) -> Result<Observation, String> {
+    observe_page(
+        client,
+        Request {
+            grants: PageCursor::Start,
+            decisions: PageCursor::Start,
+        },
+    )
+}
+
+fn observe_page<P: ServicePort>(
+    client: &mut ReadOnlyClient<P>,
+    request: Request,
+) -> Result<Observation, String> {
     let status = match client.status().map_err(|_| "Aegis status unavailable")? {
         ReplyV1::Accepted(OutcomeV1::Status(value)) => value,
         ReplyV1::Refused(value) => return Err(format!("Aegis refused: {value:?}")),
         _ => return Err("Invalid Aegis status reply".into()),
     };
-    let (grants, more_grants) = match client
-        .grant_page(None, PAGE_LIMIT)
-        .map_err(|_| "Aegis grant page unavailable")?
-    {
-        ReplyV1::Accepted(OutcomeV1::GrantPage {
-            entries,
-            next_after,
-        }) => (entries, next_after.is_some()),
-        ReplyV1::Refused(value) => return Err(format!("Aegis refused: {value:?}")),
-        _ => return Err("Invalid Aegis grant page reply".into()),
+    let (grants, next_grants) = match request.grants {
+        PageCursor::Exhausted => (Vec::new(), None),
+        PageCursor::Start | PageCursor::After(_) => match client
+            .grant_page(
+                match request.grants {
+                    PageCursor::After(after) => Some(after),
+                    _ => None,
+                },
+                PAGE_LIMIT,
+            )
+            .map_err(|_| "Aegis grant page unavailable")?
+        {
+            ReplyV1::Accepted(OutcomeV1::GrantPage {
+                entries,
+                next_after,
+            }) => (entries, next_after),
+            ReplyV1::Refused(value) => return Err(format!("Aegis refused: {value:?}")),
+            _ => return Err("Invalid Aegis grant page reply".into()),
+        },
     };
-    let (decisions, more_decisions) = match client
-        .decision_page(None, PAGE_LIMIT)
-        .map_err(|_| "Aegis decision page unavailable")?
-    {
-        ReplyV1::Accepted(OutcomeV1::DecisionPage {
-            entries,
-            next_after,
-        }) => (entries, next_after.is_some()),
-        ReplyV1::Refused(value) => return Err(format!("Aegis refused: {value:?}")),
-        _ => return Err("Invalid Aegis decision page reply".into()),
+    let (decisions, next_decisions) = match request.decisions {
+        PageCursor::Exhausted => (Vec::new(), None),
+        PageCursor::Start | PageCursor::After(_) => match client
+            .decision_page(
+                match request.decisions {
+                    PageCursor::After(after) => Some(after),
+                    _ => None,
+                },
+                PAGE_LIMIT,
+            )
+            .map_err(|_| "Aegis decision page unavailable")?
+        {
+            ReplyV1::Accepted(OutcomeV1::DecisionPage {
+                entries,
+                next_after,
+            }) => (entries, next_after),
+            ReplyV1::Refused(value) => return Err(format!("Aegis refused: {value:?}")),
+            _ => return Err("Invalid Aegis decision page reply".into()),
+        },
     };
     Ok(Observation {
         status,
         grants,
-        more_grants,
+        more_grants: next_grants.is_some(),
         decisions,
-        more_decisions,
+        more_decisions: next_decisions.is_some(),
+        next_grants,
+        next_decisions,
     })
 }

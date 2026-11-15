@@ -6,6 +6,8 @@
 - [x] Separate standalone interactive and headless CLI composition root.
 - [x] Explicit `authority.observe.v1` capability manifest.
 - [x] Bounded status, grant-summary, and decision-summary observation.
+- [x] Forward/backward bounded page navigation with asymmetric exhaustion that
+  never replays the final page as new evidence.
 - [x] Real durable Aegis daemon qualification.
 - [x] Workbench interactive and headless attach qualification against the real
   durable daemon through the same public client and reusable component.
