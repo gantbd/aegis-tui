@@ -7,7 +7,8 @@
 - [x] Explicit `authority.observe.v1` capability manifest.
 - [x] Bounded status, grant-summary, and decision-summary observation.
 - [x] Real durable Aegis daemon qualification.
-- [ ] Workbench interactive and headless composition qualification.
+- [x] Workbench interactive and headless attach qualification against the real
+  durable daemon through the same public client and reusable component.
 
 ## Guarded administration
 
