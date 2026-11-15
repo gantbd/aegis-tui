@@ -24,6 +24,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         return Ok(());
     }
+    if mode == "revoke-epoch" {
+        return revoke_epoch(args);
+    }
     if mode != "interactive" && mode != "headless" {
         return Err(usage().into());
     }
@@ -48,6 +51,89 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         headless(session, port)
     }
+}
+
+#[cfg(unix)]
+fn revoke_epoch(
+    mut args: impl Iterator<Item = std::ffi::OsString>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let socket = args
+        .next()
+        .map(std::path::PathBuf::from)
+        .ok_or_else(usage)?;
+    let expected_epoch = args
+        .next()
+        .and_then(|value| value.into_string().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+        .ok_or_else(usage)?;
+    let confirmation = args
+        .next()
+        .and_then(|value| value.into_string().ok())
+        .ok_or_else(usage)?;
+    if args.next().is_some() {
+        return Err(usage().into());
+    }
+    let (session, port) = match aegis_tui_local_client::connect(
+        socket,
+        aegis_wire::LimitsV1::default(),
+        std::time::Duration::from_secs(5),
+    ) {
+        Ok(value) => value,
+        Err(error) => return revoke_failure("not_sent", &format!("{error:?}"), None),
+    };
+    let request = aegis_admin_command::RevokeEpoch { expected_epoch };
+    match aegis_admin_command::revoke_epoch(session, port, request, &confirmation) {
+        Ok(epoch) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "version": 1,
+                    "peer": "aegis",
+                    "capability": aegis_admin_command::CAPABILITY,
+                    "complete": true,
+                    "status": "accepted",
+                    "expected_epoch": expected_epoch,
+                    "epoch": epoch
+                }))?
+            );
+            Ok(())
+        }
+        Err(aegis_admin_command::RevokeError::ConfirmationMismatch { required }) => revoke_failure(
+            "confirmation_refused",
+            "exact confirmation required",
+            Some(&required),
+        ),
+        Err(aegis_admin_command::RevokeError::StaleEpoch { actual, .. }) => {
+            revoke_failure("stale_epoch", &format!("current epoch is {actual}"), None)
+        }
+        Err(aegis_admin_command::RevokeError::MutationTransport(
+            aegis_tui_local_client::ClientError::OutcomeUnknown(error),
+        )) => revoke_failure("outcome_unknown", &error.to_string(), None),
+        Err(aegis_admin_command::RevokeError::MutationRefused(refusal)) => {
+            revoke_failure("refused", &format!("{refusal:?}"), None)
+        }
+        Err(error) => revoke_failure("unavailable", &format!("{error:?}"), None),
+    }
+}
+
+#[cfg(unix)]
+fn revoke_failure(
+    status: &str,
+    message: &str,
+    required_confirmation: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "version": 1,
+            "peer": "aegis",
+            "capability": aegis_admin_command::CAPABILITY,
+            "complete": false,
+            "status": status,
+            "required_confirmation": required_confirmation
+        }))?
+    );
+    Err(std::io::Error::other(message).into())
 }
 
 #[cfg(unix)]
@@ -111,7 +197,7 @@ fn failure(status: &str, message: &str) -> Result<(), Box<dyn std::error::Error>
 }
 
 fn usage() -> &'static str {
-    "usage: aegis-tui capabilities | aegis-tui <interactive|headless> SOCKET\nheadless emits one bounded versioned authority.observe.v1 observation without constructing TUI or mutation state"
+    "usage: aegis-tui capabilities | aegis-tui <interactive|headless> SOCKET | aegis-tui revoke-epoch SOCKET EXPECTED_EPOCH 'REVOKE AEGIS EPOCH EXPECTED_EPOCH'\nheadless emits one bounded versioned authority.observe.v1 observation without constructing TUI or mutation state; revoke-epoch performs one exact-confirmed attempt and never retries an uncertain outcome"
 }
 
 #[cfg(not(unix))]

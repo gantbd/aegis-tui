@@ -13,6 +13,7 @@ doc = false
 
 [dependencies]
 aegis-tui = { path = ".." }
+aegis-admin-command = { path = "../admin-command" }
 aegis-tui-local-client = { path = "../local-client" }
 aegis-client = { version = "=0.1.0", path = "../../aegis/crates/aegis-client" }
 aegis-protocol = { version = "=0.1.0", path = "../../aegis/crates/aegis-protocol" }

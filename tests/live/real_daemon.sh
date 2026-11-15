@@ -55,6 +55,42 @@ assert value["page_grants"] == 4 and value["more_grants"]
 assert value["page_decisions"] == 4 and value["more_decisions"]
 '
 
+start_fixture wrong-confirmation
+if refusal=$("$client" revoke-epoch "$tmp/wrong-confirmation.sock" 0 'revoke aegis epoch 0' 2>"$tmp/wrong-confirmation.err"); then
+  echo 'FAIL: inexact revocation confirmation was accepted' >&2
+  exit 1
+fi
+finish_fixture
+printf '%s' "$refusal" | python3 -c '
+import json, sys
+value = json.load(sys.stdin)
+assert not value["complete"] and value["status"] == "confirmation_refused"
+assert value["required_confirmation"] == "REVOKE AEGIS EPOCH 0"
+'
+
+start_fixture stale-epoch
+if refusal=$("$client" revoke-epoch "$tmp/stale-epoch.sock" 1 'REVOKE AEGIS EPOCH 1' 2>"$tmp/stale-epoch.err"); then
+  echo 'FAIL: stale revocation epoch was accepted' >&2
+  exit 1
+fi
+finish_fixture
+printf '%s' "$refusal" | python3 -c '
+import json, sys
+value = json.load(sys.stdin)
+assert not value["complete"] and value["status"] == "stale_epoch"
+'
+
+start_fixture revoke
+revoked=$("$client" revoke-epoch "$tmp/revoke.sock" 0 'REVOKE AEGIS EPOCH 0')
+finish_fixture
+printf '%s' "$revoked" | python3 -c '
+import json, sys
+value = json.load(sys.stdin)
+assert value["complete"] and value["status"] == "accepted"
+assert value["capability"] == "authority.revoke-epoch.v1"
+assert value["expected_epoch"] == 0 and value["epoch"] == 1
+'
+
 start_fixture interactive
 python3 - "$tmp" "$client" <<'PYTHON'
 from pathlib import Path
@@ -100,4 +136,4 @@ finally:
 PYTHON
 finish_fixture
 
-echo 'PASS: real Aegis daemon -> bounded grant/decision page navigation'
+echo 'PASS: real Aegis daemon -> bounded pages and exact-confirmed epoch revocation'

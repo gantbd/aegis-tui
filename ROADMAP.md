@@ -14,10 +14,16 @@
 
 ## Guarded administration
 
-- [ ] Specify typed issue and attenuation inputs without accepting credentials
-  or exporting grant material.
-- [ ] Add exact confirmation and current-epoch preconditions for mutation.
-- [ ] Preserve outcome-unknown failures without automatic retry.
-- [ ] Qualify revocation, recovery fencing, non-amplification, and refusal laws
-  before exposing any authority-bearing command.
+- [x] Add a peer-owned epoch-revocation guard with an exact literal
+  confirmation and current-epoch observation on the same authenticated
+  connection.
+- [x] Preserve post-send transport uncertainty without automatic retry and
+  qualify confirmation refusal, stale-epoch refusal and success against the
+  real durable daemon.
+- [ ] Specify a long-lived authority-bearing session for issue and attenuation
+  without accepting credentials or exporting grant material. One-shot commands
+  are invalid because handles are session-local and lost replies cannot be
+  reconciled to exact grants.
+- [ ] Qualify issue/attenuation recovery, non-amplification and refusal laws
+  before exposing either command.
 

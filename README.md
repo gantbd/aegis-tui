@@ -6,11 +6,17 @@ be embedded by Workbench or another host.
 The small `aegis-tui-local-client` adapter implements that public port over the
 selected Unix wire without importing Aegis's service or durability graph.
 
-The separate `aegis-tui` executable supports interactive display and a bounded,
-versioned headless `authority.observe.v1` observation. Its first contract does
-not issue, attenuate, authorize with, serialize, or revoke authority. Those
-operations require separate authority-bearing CLI contracts and confirmation
-laws before they can be added safely.
+The separate `aegis-tui` executable supports interactive display, a bounded,
+versioned headless `authority.observe.v1` observation, and one separately
+guarded administrative command. `revoke-epoch` requires the exact observed
+epoch and literal `REVOKE AEGIS EPOCH N` confirmation. It performs one attempt
+and reports a post-send transport failure as `outcome_unknown`; it never retries.
+The reusable Ratatui component remains read-only.
+
+Issue and attenuation remain excluded. Their handles are session-local, so a
+one-shot command would destroy the useful handle on disconnect, and a lost
+reply cannot yet be reconciled to an exact grant. They need a long-lived,
+authority-bearing session contract and operation identity before exposure.
 
 Interactive mode pages through bounded redacted grant and decision summaries
 with `n` and `p`. Handles remain service-local references, not credentials or
@@ -20,6 +26,8 @@ truthfully reports whether more entries exist.
 ```sh
 cargo run -p aegis-tui-cli -- capabilities
 cargo run -p aegis-tui-cli -- headless /path/to/aegis.sock
+cargo run -p aegis-tui-cli -- revoke-epoch /path/to/aegis.sock 7 \
+  'REVOKE AEGIS EPOCH 7'
 ./tests/live/real_daemon.sh
 ```
 
