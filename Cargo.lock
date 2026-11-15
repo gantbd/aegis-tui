@@ -80,10 +80,20 @@ dependencies = [
  "aegis-protocol",
  "aegis-service",
  "aegis-tui",
+ "aegis-tui-local-client",
  "aegis-wire",
  "crossterm",
  "ratatui",
  "serde_json",
+]
+
+[[package]]
+name = "aegis-tui-local-client"
+version = "0.1.0"
+dependencies = [
+ "aegis-client",
+ "aegis-protocol",
+ "aegis-wire",
 ]
 
 [[package]]

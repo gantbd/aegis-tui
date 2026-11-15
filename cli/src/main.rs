@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ if mode == "headless" => return failure("configuration_refused", usage()),
         _ => return Err(usage().into()),
     };
-    let (session, port) = match aegis_local_daemon::unix::connect(
+    let (session, port) = match aegis_tui_local_client::connect(
         socket,
         aegis_wire::LimitsV1::default(),
         std::time::Duration::from_secs(5),
@@ -73,7 +73,7 @@ fn interactive(mut component: aegis_tui::Component) -> Result<(), Box<dyn std::e
 #[cfg(unix)]
 fn headless(
     session: aegis_protocol::SessionHandleV1,
-    port: aegis_local_daemon::unix::UnixPort,
+    port: aegis_tui_local_client::LocalPort,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = aegis_client::ReadOnlyClient::new(session, port, aegis_tui::PAGE_LIMIT)
         .map_err(|_| std::io::Error::other("invalid read-only client limit"))?;

@@ -13,8 +13,8 @@ doc = false
 
 [dependencies]
 aegis-tui = { path = ".." }
+aegis-tui-local-client = { path = "../local-client" }
 aegis-client = { version = "=0.1.0", path = "../../aegis/crates/aegis-client" }
-aegis-local-daemon = { version = "=0.1.0", path = "../../aegis/crates/aegis-local-daemon" }
 aegis-protocol = { version = "=0.1.0", path = "../../aegis/crates/aegis-protocol" }
 aegis-wire = { version = "=0.1.0", path = "../../aegis/crates/aegis-wire" }
 ratatui = { version = "=0.30.2", default-features = false, features = ["crossterm"] }
@@ -25,6 +25,7 @@ serde_json = "=1.0.151"
 aegis-authority = { version = "=0.0.1", path = "../../aegis" }
 aegis-local = { version = "=0.0.1", path = "../../aegis/adapters/aegis-local" }
 aegis-service = { version = "=0.1.0", path = "../../aegis/crates/aegis-service" }
+aegis-local-daemon = { version = "=0.1.0", path = "../../aegis/crates/aegis-local-daemon" }
 
 [lints.rust]
 unsafe_code = "forbid"

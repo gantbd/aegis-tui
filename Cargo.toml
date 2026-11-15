@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["cli"]
+members = ["local-client", "cli"]
 
 [package]
 name = "aegis-tui"
