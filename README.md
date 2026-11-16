@@ -3,8 +3,9 @@
 `aegis-tui` is the composable, read-only terminal presentation for Aegis. It
 depends on Aegis's public `ReadOnlyClient`, owns no terminal lifecycle, and can
 be embedded by Workbench or another host.
-The small `aegis-tui-local-client` adapter implements that public port over the
-selected Unix wire without importing Aegis's service or durability graph.
+Aegis's owner-maintained `aegis-local-client` implements that public port over
+the selected Unix wire without importing Aegis's service or durability graph.
+`aegis-tui-local-client` remains only as a source-compatibility facade.
 
 The separate `aegis-tui` executable supports interactive display, a bounded,
 versioned headless `authority.observe.v1` observation, and separately guarded

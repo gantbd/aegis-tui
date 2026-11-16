@@ -26,3 +26,15 @@ fn authority_command_guards_are_owned_by_aegis_not_presentation() {
             .exists()
     );
 }
+
+#[test]
+fn local_transport_is_owned_by_aegis_not_presentation() {
+    let facade = include_str!("../local-client/src/lib.rs");
+    let manifest = include_str!("../local-client/Cargo.toml");
+    let readme = include_str!("../README.md");
+    assert!(facade.contains("pub use aegis_local_client"));
+    assert!(!facade.contains("UnixStream"));
+    assert!(manifest.contains("aegis-local-client"));
+    assert!(!manifest.contains("aegis-wire"));
+    assert!(readme.contains("owner-maintained `aegis-local-client`"));
+}

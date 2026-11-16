@@ -7,9 +7,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-aegis-client = { version = "=0.1.0", path = "../../aegis/crates/aegis-client" }
-aegis-protocol = { version = "=0.1.0", path = "../../aegis/crates/aegis-protocol" }
-aegis-wire = { version = "=0.1.0", path = "../../aegis/crates/aegis-wire" }
+aegis-local-client = { version = "=0.1.0", path = "../../aegis/crates/aegis-local-client" }
 
 [lints.rust]
 unsafe_code = "forbid"
