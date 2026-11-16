@@ -27,6 +27,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if mode == "revoke-epoch" {
         return revoke_epoch(args);
     }
+    if mode == "attenuate-authorize-once" {
+        return attenuate_authorize_once(args);
+    }
     if mode != "interactive" && mode != "headless" {
         return Err(usage().into());
     }
@@ -137,6 +140,117 @@ fn revoke_failure(
 }
 
 #[cfg(unix)]
+fn attenuate_authorize_once(
+    mut args: impl Iterator<Item = std::ffi::OsString>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let socket = args
+        .next()
+        .map(std::path::PathBuf::from)
+        .ok_or_else(usage)?;
+    let expected_epoch = parse_u64(args.next()).ok_or_else(usage)?;
+    let now = parse_u64(args.next()).ok_or_else(usage)?;
+    let parent_expires_at = parse_u64(args.next()).ok_or_else(usage)?;
+    let child_expires_at = parse_u64(args.next()).ok_or_else(usage)?;
+    let engine = parse_text(args.next())
+        .and_then(|value| aegis_admin_command::parse_engine(&value))
+        .ok_or_else(usage)?;
+    let resource = parse_text(args.next())
+        .and_then(|value| aegis_admin_command::parse_resource(&value))
+        .ok_or_else(usage)?;
+    let action = parse_text(args.next())
+        .and_then(|value| aegis_admin_command::parse_action(&value))
+        .ok_or_else(usage)?;
+    let confirmation = parse_text(args.next()).ok_or_else(usage)?;
+    if args.next().is_some() {
+        return Err(usage().into());
+    }
+    let request = aegis_admin_command::AuthorityJourney {
+        expected_epoch,
+        now,
+        parent_expires_at,
+        child_expires_at,
+        engine,
+        resource,
+        action,
+    };
+    let (session, port) = match aegis_tui_local_client::connect(
+        socket,
+        aegis_wire::LimitsV1::default(),
+        std::time::Duration::from_secs(5),
+    ) {
+        Ok(value) => value,
+        Err(error) => return journey_failure("not_sent", &format!("{error:?}"), None),
+    };
+    match aegis_admin_command::attenuate_authorize_once(session, port, request, &confirmation) {
+        Ok(result) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "version": 1,
+                    "peer": "aegis",
+                    "capability": aegis_admin_command::JOURNEY_CAPABILITY,
+                    "complete": true,
+                    "status": "authorized",
+                    "epoch": result.epoch,
+                    "expires_at": result.expires_at,
+                    "engine": aegis_admin_command::engine_name(result.engine),
+                    "action": aegis_admin_command::action_name(result.action)
+                }))?
+            );
+            Ok(())
+        }
+        Err(aegis_admin_command::JourneyError::ConfirmationMismatch { required }) => {
+            journey_failure(
+                "confirmation_refused",
+                "exact confirmation required",
+                Some(&required),
+            )
+        }
+        Err(aegis_admin_command::JourneyError::StaleEpoch { actual, .. }) => {
+            journey_failure("stale_epoch", &format!("current epoch is {actual}"), None)
+        }
+        Err(aegis_admin_command::JourneyError::Transport {
+            error: aegis_tui_local_client::ClientError::OutcomeUnknown(error),
+            ..
+        }) => journey_failure("outcome_unknown", &error.to_string(), None),
+        Err(aegis_admin_command::JourneyError::Refused { refusal, .. }) => {
+            journey_failure("refused", &format!("{refusal:?}"), None)
+        }
+        Err(error) => journey_failure("unavailable", &format!("{error:?}"), None),
+    }
+}
+
+#[cfg(unix)]
+fn parse_text(value: Option<std::ffi::OsString>) -> Option<String> {
+    value?.into_string().ok()
+}
+
+#[cfg(unix)]
+fn parse_u64(value: Option<std::ffi::OsString>) -> Option<u64> {
+    parse_text(value)?.parse().ok()
+}
+
+#[cfg(unix)]
+fn journey_failure(
+    status: &str,
+    message: &str,
+    required_confirmation: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({
+            "version": 1,
+            "peer": "aegis",
+            "capability": aegis_admin_command::JOURNEY_CAPABILITY,
+            "complete": false,
+            "status": status,
+            "required_confirmation": required_confirmation
+        }))?
+    );
+    Err(std::io::Error::other(message).into())
+}
+
+#[cfg(unix)]
 fn interactive(mut component: aegis_tui::Component) -> Result<(), Box<dyn std::error::Error>> {
     use crossterm::event::{self, Event};
     use std::time::Duration;
@@ -197,7 +311,7 @@ fn failure(status: &str, message: &str) -> Result<(), Box<dyn std::error::Error>
 }
 
 fn usage() -> &'static str {
-    "usage: aegis-tui capabilities | aegis-tui <interactive|headless> SOCKET | aegis-tui revoke-epoch SOCKET EXPECTED_EPOCH 'REVOKE AEGIS EPOCH EXPECTED_EPOCH'\nheadless emits one bounded versioned authority.observe.v1 observation without constructing TUI or mutation state; revoke-epoch performs one exact-confirmed attempt and never retries an uncertain outcome"
+    "usage: aegis-tui capabilities | aegis-tui <interactive|headless> SOCKET | aegis-tui revoke-epoch SOCKET EXPECTED_EPOCH 'REVOKE AEGIS EPOCH EXPECTED_EPOCH' | aegis-tui attenuate-authorize-once SOCKET EXPECTED_EPOCH NOW PARENT_EXPIRES_AT CHILD_EXPIRES_AT ENGINE RESOURCE_HEX ACTION 'AUTHORIZE AEGIS EPOCH EXPECTED_EPOCH ENGINE RESOURCE_HEX ACTION UNTIL CHILD_EXPIRES_AT'\nheadless emits one bounded versioned authority.observe.v1 observation without constructing TUI or mutation state; mutation commands make one exact-confirmed same-connection attempt, export no grant handles, and never retry an uncertain outcome"
 }
 
 #[cfg(not(unix))]

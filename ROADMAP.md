@@ -20,10 +20,13 @@
 - [x] Preserve post-send transport uncertainty without automatic retry and
   qualify confirmation refusal, stale-epoch refusal and success against the
   real durable daemon.
+- [x] Add an exact-confirmed, same-connection issue → attenuation → one-time
+  authorization journey. It exports only redacted decision facts, never grant
+  handles, and preserves per-phase transport uncertainty without retry.
 - [ ] Specify a long-lived authority-bearing session for issue and attenuation
   without accepting credentials or exporting grant material. One-shot commands
   are invalid because handles are session-local and lost replies cannot be
   reconciled to exact grants.
-- [ ] Qualify issue/attenuation recovery, non-amplification and refusal laws
-  before exposing either command.
+- [ ] Qualify recovery and operation identity for reusable issue/attenuation
+  management before exposing either command outside a bounded journey.
 
