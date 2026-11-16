@@ -1,5 +1,9 @@
 # Aegis TUI
 
+Status: locally qualified coordinated source candidate. Public GitHub
+reachability is not claimed until its exact revision and CI run are recorded in
+[`release/github-source.json`](release/github-source.json).
+
 `aegis-tui` is the composable, read-only terminal presentation for Aegis. It
 depends on Aegis's public `ReadOnlyClient`, owns no terminal lifecycle, and can
 be embedded by Workbench or another host.
