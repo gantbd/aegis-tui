@@ -7,7 +7,8 @@ for required in CHANGELOG.md CONTRIBUTING.md LICENSE-APACHE LICENSE-MIT README.m
 done
 
 rg -q '^channel = "1\.95\.0"$' rust-toolchain.toml
-rg -q '"remoteReachabilityQualified": false' release/github-source.json
+rg -q '"remoteReachabilityQualified": true' release/github-source.json
+rg -q '"qualificationRevision": "1a9fa9df567aa08683175d0d6611a3633b95f8eb"' release/github-source.json
 rg -q '"revision": "2e4faf10ec0a70805aa1db1555f93c77fcf0a1e4"' release/github-source.json
 rg -q '"revision": "b272106cf6d0093839a7d696c829bf8a408b0306"' release/github-source.json
 expected=$(awk -F': ' '$1 == "lockfile-sha256" { print $2 }' docs/advisory-attestation.md)

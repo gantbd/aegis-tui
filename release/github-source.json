@@ -2,7 +2,9 @@
   "schema": 1,
   "channel": "github-coordinated-source",
   "aegisTuiRepository": "https://github.com/gantbd/aegis-tui",
-  "remoteReachabilityQualified": false,
+  "remoteReachabilityQualified": true,
+  "qualificationRevision": "1a9fa9df567aa08683175d0d6611a3633b95f8eb",
+  "qualificationRun": "https://github.com/gantbd/aegis-tui/actions/runs/43975634424",
   "dependencies": {
     "keystone": {
       "repository": "https://github.com/gantbd/keystone",
