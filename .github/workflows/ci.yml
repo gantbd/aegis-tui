@@ -42,7 +42,9 @@ jobs:
         run: brew install ripgrep tmux
       - name: Fetch locked dependencies
         working-directory: aegis-tui
-        run: cargo fetch --locked
+        run: |
+          cargo fetch --locked
+          cargo fetch --manifest-path ../aegis/Cargo.toml --locked
       - name: Audit current RustSec advisories
         working-directory: aegis-tui
         run: |
