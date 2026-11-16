@@ -32,7 +32,8 @@
   private handles, exact confirmation and terminal fencing.
 - [x] Qualify named issue, attenuation, authorization, listing and clean close
   through the standalone shell against a real daemon without handle export.
-- [ ] Qualify explicit disconnect/reconnect abandonment and deliberate rebuild
-  under new operation names. Durable grant replay and lost-reply reconciliation
+- [x] Qualify explicit disconnect/reconnect abandonment and deliberate rebuild
+  under a new operation name through two shell processes and the selected
+  long-running owner daemon. Durable grant replay and lost-reply reconciliation
   remain nonclaims.
 

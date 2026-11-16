@@ -5,6 +5,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd -P)
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/aegis-tui-live.XXXXXX")
 fixture="$root/target/debug/examples/real_daemon_fixture"
 client="$root/target/debug/aegis-tui"
+daemon="$root/../aegis/target/debug/aegis-daemon"
 pid=
 
 cleanup() {
@@ -18,6 +19,8 @@ trap cleanup EXIT HUP INT TERM
 
 cargo build --manifest-path "$root/Cargo.toml" --package aegis-tui-cli \
   --bin aegis-tui --example real_daemon_fixture --locked --offline
+cargo build --manifest-path "$root/../aegis/Cargo.toml" --package aegis-daemon \
+  --bin aegis-daemon --locked --offline
 
 start_fixture() {
   name=$1
@@ -175,5 +178,59 @@ finally:
     tmux("kill-server", check=False)
 PYTHON
 finish_fixture
+
+reconnect_socket="$tmp/reconnect.sock"
+reconnect_authority="$tmp/reconnect-authority"
+authority_id=31313131313131313131313131313131
+principal_id=32323232323232323232323232323232
+session_namespace=3333333333333333
+"$daemon" create "$reconnect_authority" "$reconnect_socket" "$authority_id" \
+  "$(id -u)" "$(id -g)" "$principal_id" "$session_namespace" administrator \
+  >"$tmp/reconnect.log" 2>&1 &
+pid=$!
+attempt=0
+while [ ! -S "$reconnect_socket" ]; do
+  if ! kill -0 "$pid" 2>/dev/null || [ "$attempt" -eq 100 ]; then
+    sed -n '1,160p' "$tmp/reconnect.log" >&2
+    echo 'FAIL: selected Aegis daemon did not become ready' >&2
+    exit 1
+  fi
+  attempt=$((attempt + 1))
+  sleep 0.025
+done
+
+abandoned=41414141414141414141414141414141
+rebuilt=42424242424242424242424242424242
+reconnect_resource=43434343434343434343434343434343
+first=$(printf '%s\n' \
+  "{\"version\":1,\"command\":\"issue\",\"operation\":\"$abandoned\",\"expected_epoch\":0,\"now\":10,\"expires_at\":40,\"scopes\":[{\"engine\":\"hermes\",\"resource\":\"$reconnect_resource\",\"actions\":[\"observe\"]}],\"confirmation\":\"ISSUE AEGIS OP $abandoned EPOCH 0 UNTIL 40 SCOPES hermes:$reconnect_resource:observe\"}" | \
+  "$client" manage-session "$reconnect_socket")
+printf '%s' "$first" | python3 -c '
+import json, sys
+value = json.load(sys.stdin)
+assert value["status"] == "issued" and not value["terminal"]
+'
+
+second=$(printf '%s\n' \
+  '{"version":1,"command":"list"}' \
+  "{\"version\":1,\"command\":\"issue\",\"operation\":\"$rebuilt\",\"expected_epoch\":0,\"now\":11,\"expires_at\":50,\"scopes\":[{\"engine\":\"hermes\",\"resource\":\"$reconnect_resource\",\"actions\":[\"observe\"]}],\"confirmation\":\"ISSUE AEGIS OP $rebuilt EPOCH 0 UNTIL 50 SCOPES hermes:$reconnect_resource:observe\"}" \
+  "{\"version\":1,\"command\":\"authorize\",\"operation\":\"$rebuilt\",\"now\":12,\"engine\":\"hermes\",\"resource\":\"$reconnect_resource\",\"action\":\"observe\",\"confirmation\":\"AUTHORIZE AEGIS OP $rebuilt hermes $reconnect_resource observe\"}" \
+  '{"version":1,"command":"close"}' | \
+  "$client" manage-session "$reconnect_socket")
+printf '%s' "$second" | python3 -c '
+import json, sys
+values = [json.loads(line) for line in sys.stdin if line.strip()]
+assert [value["status"] for value in values] == ["current", "issued", "authorized", "closed"]
+assert values[0]["grants"] == []
+assert values[1]["grant"]["operation"] == "42424242424242424242424242424242"
+assert "41414141414141414141414141414141" not in json.dumps(values)
+'
+kill -TERM "$pid"
+wait "$pid"
+pid=
+if [ -e "$reconnect_socket" ]; then
+  echo 'FAIL: selected Aegis daemon left its owned socket behind' >&2
+  exit 1
+fi
 
 echo 'PASS: real Aegis daemon -> bounded pages, managed private-handle session, authority journey, and epoch revocation'
