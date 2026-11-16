@@ -17,7 +17,12 @@ fn authority_command_guards_are_owned_by_aegis_not_presentation() {
     let cli = include_str!("../cli/Cargo.toml");
     assert!(!workspace.contains("admin-command"));
     assert!(cli.contains("../../aegis/crates/aegis-admin-command"));
-    assert!(!std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("admin-command")
-        .exists());
+    assert!(cli.contains("../../aegis/applications/aegis-admin-session"));
+    assert!(!workspace.contains("admin-session"));
+    assert!(include_str!("../cli/src/main.rs").contains("aegis_admin_session::run"));
+    assert!(
+        !std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("admin-command")
+            .exists()
+    );
 }

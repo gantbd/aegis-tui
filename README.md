@@ -21,6 +21,13 @@ on disconnect. Every mutation is attempted at most once; a lost reply is
 `outcome_unknown`. Reusable issue and attenuation remain excluded because their
 handles are session-local and cannot survive a one-shot command.
 
+`manage-session` is the standalone long-lived shell for Aegis's owner-supplied
+`aegis.admin-session.v1` NDJSON application protocol. The CLI only selects the
+socket and connects standard input/output; parsing, bounds, exact confirmation,
+operation names, private handle retention, redacted responses and terminal
+uncertainty fencing remain in Aegis. See Aegis's `docs/admin-session.md` for the
+closed request/response schema.
+
 Interactive mode pages through bounded redacted grant and decision summaries
 with `n` and `p`. Handles remain service-local references, not credentials or
 exported grant material. Headless mode emits only the first bounded page and
@@ -34,6 +41,7 @@ cargo run -p aegis-tui-cli -- revoke-epoch /path/to/aegis.sock 7 \
 cargo run -p aegis-tui-cli -- attenuate-authorize-once /path/to/aegis.sock \
   7 100 300 200 hermes 00112233445566778899aabbccddeeff observe \
   'AUTHORIZE AEGIS EPOCH 7 hermes 00112233445566778899aabbccddeeff observe UNTIL 200'
+cargo run -p aegis-tui-cli -- manage-session /path/to/aegis.sock < commands.ndjson
 ./tests/live/real_daemon.sh
 ```
 

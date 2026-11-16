@@ -26,10 +26,13 @@
 - [x] Move the non-presentation command guard into Aegis ownership; this
   repository retains only the reusable read-only component, local client and
   standalone shell that invokes the owner guard.
-- [ ] Specify a long-lived authority-bearing session for issue and attenuation
-  without accepting credentials or exporting grant material. One-shot commands
-  are invalid because handles are session-local and lost replies cannot be
-  reconciled to exact grants.
-- [ ] Qualify recovery and operation identity for reusable issue/attenuation
-  management before exposing either command outside a bounded journey.
+- [x] Expose Aegis's bounded long-lived `aegis.admin-session.v1` application
+  protocol as a thin standalone `manage-session` shell. The shell selects the
+  socket and standard streams only; Aegis owns parsing, operation identity,
+  private handles, exact confirmation and terminal fencing.
+- [x] Qualify named issue, attenuation, authorization, listing and clean close
+  through the standalone shell against a real daemon without handle export.
+- [ ] Qualify explicit disconnect/reconnect abandonment and deliberate rebuild
+  under new operation names. Durable grant replay and lost-reply reconciliation
+  remain nonclaims.
 

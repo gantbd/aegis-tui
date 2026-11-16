@@ -30,6 +30,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if mode == "attenuate-authorize-once" {
         return attenuate_authorize_once(args);
     }
+    if mode == "manage-session" {
+        return manage_session(args);
+    }
     if mode != "interactive" && mode != "headless" {
         return Err(usage().into());
     }
@@ -251,6 +254,39 @@ fn journey_failure(
 }
 
 #[cfg(unix)]
+fn manage_session(
+    mut args: impl Iterator<Item = std::ffi::OsString>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let socket = match (args.next(), args.next()) {
+        (Some(socket), None) => std::path::PathBuf::from(socket),
+        _ => return Err(usage().into()),
+    };
+    let (session, port) = aegis_tui_local_client::connect(
+        socket,
+        aegis_wire::LimitsV1::default(),
+        std::time::Duration::from_secs(5),
+    )
+    .map_err(|error| std::io::Error::other(format!("Aegis connection refused: {error:?}")))?;
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    match aegis_admin_session::run(
+        session,
+        port,
+        stdin.lock(),
+        stdout.lock(),
+        aegis_admin_session::LimitsV1::default(),
+    )? {
+        aegis_admin_session::EndV1::Eof | aegis_admin_session::EndV1::Closed => Ok(()),
+        aegis_admin_session::EndV1::CommandLimit => {
+            Err(std::io::Error::other("Aegis administration command limit reached").into())
+        }
+        aegis_admin_session::EndV1::Fenced => {
+            Err(std::io::Error::other("Aegis administration session fenced").into())
+        }
+    }
+}
+
+#[cfg(unix)]
 fn interactive(mut component: aegis_tui::Component) -> Result<(), Box<dyn std::error::Error>> {
     use crossterm::event::{self, Event};
     use std::time::Duration;
@@ -311,7 +347,7 @@ fn failure(status: &str, message: &str) -> Result<(), Box<dyn std::error::Error>
 }
 
 fn usage() -> &'static str {
-    "usage: aegis-tui capabilities | aegis-tui <interactive|headless> SOCKET | aegis-tui revoke-epoch SOCKET EXPECTED_EPOCH 'REVOKE AEGIS EPOCH EXPECTED_EPOCH' | aegis-tui attenuate-authorize-once SOCKET EXPECTED_EPOCH NOW PARENT_EXPIRES_AT CHILD_EXPIRES_AT ENGINE RESOURCE_HEX ACTION 'AUTHORIZE AEGIS EPOCH EXPECTED_EPOCH ENGINE RESOURCE_HEX ACTION UNTIL CHILD_EXPIRES_AT'\nheadless emits one bounded versioned authority.observe.v1 observation without constructing TUI or mutation state; mutation commands make one exact-confirmed same-connection attempt, export no grant handles, and never retry an uncertain outcome"
+    "usage: aegis-tui capabilities | aegis-tui <interactive|headless> SOCKET | aegis-tui manage-session SOCKET | aegis-tui revoke-epoch SOCKET EXPECTED_EPOCH 'REVOKE AEGIS EPOCH EXPECTED_EPOCH' | aegis-tui attenuate-authorize-once SOCKET EXPECTED_EPOCH NOW PARENT_EXPIRES_AT CHILD_EXPIRES_AT ENGINE RESOURCE_HEX ACTION 'AUTHORIZE AEGIS EPOCH EXPECTED_EPOCH ENGINE RESOURCE_HEX ACTION UNTIL CHILD_EXPIRES_AT'\nheadless emits one bounded versioned authority.observe.v1 observation without constructing TUI or mutation state; manage-session delegates bounded NDJSON issue/attenuate/authorize ownership to Aegis; mutation commands export no grant handles and never retry an uncertain outcome"
 }
 
 #[cfg(not(unix))]
