@@ -8,7 +8,7 @@ selected Unix wire without importing Aegis's service or durability graph.
 
 The separate `aegis-tui` executable supports interactive display, a bounded,
 versioned headless `authority.observe.v1` observation, and separately guarded
-authority commands. `revoke-epoch` requires the exact observed
+authority commands from Aegis-owned `aegis-admin-command`. `revoke-epoch` requires the exact observed
 epoch and literal `REVOKE AEGIS EPOCH N` confirmation. It performs one attempt
 and reports a post-send transport failure as `outcome_unknown`; it never retries.
 The reusable Ratatui component remains read-only.

@@ -10,3 +10,14 @@ fn reusable_component_is_read_only_and_application_free() {
     assert!(!source.contains("ratatui::run"));
     assert!(!source.contains("std::env::args"));
 }
+
+#[test]
+fn authority_command_guards_are_owned_by_aegis_not_presentation() {
+    let workspace = include_str!("../Cargo.toml");
+    let cli = include_str!("../cli/Cargo.toml");
+    assert!(!workspace.contains("admin-command"));
+    assert!(cli.contains("../../aegis/crates/aegis-admin-command"));
+    assert!(!std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("admin-command")
+        .exists());
+}

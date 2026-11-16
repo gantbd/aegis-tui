@@ -14,7 +14,7 @@
 
 ## Guarded administration
 
-- [x] Add a peer-owned epoch-revocation guard with an exact literal
+- [x] Reuse the Aegis-owned epoch-revocation guard with an exact literal
   confirmation and current-epoch observation on the same authenticated
   connection.
 - [x] Preserve post-send transport uncertainty without automatic retry and
@@ -23,6 +23,9 @@
 - [x] Add an exact-confirmed, same-connection issue → attenuation → one-time
   authorization journey. It exports only redacted decision facts, never grant
   handles, and preserves per-phase transport uncertainty without retry.
+- [x] Move the non-presentation command guard into Aegis ownership; this
+  repository retains only the reusable read-only component, local client and
+  standalone shell that invokes the owner guard.
 - [ ] Specify a long-lived authority-bearing session for issue and attenuation
   without accepting credentials or exporting grant material. One-shot commands
   are invalid because handles are session-local and lost replies cannot be
