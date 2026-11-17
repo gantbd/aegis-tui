@@ -16,7 +16,11 @@ versioned headless `authority.observe.v1` observation, and separately guarded
 authority commands from Aegis-owned `aegis-admin-command`. `revoke-epoch` requires the exact observed
 epoch and literal `REVOKE AEGIS EPOCH N` confirmation. It performs one attempt
 and reports a post-send transport failure as `outcome_unknown`; it never retries.
-The reusable Ratatui component remains read-only.
+The primary reusable Ratatui component remains read-only. Hosts with a separately
+selected administrative connection may compose `RevokeEpochComponent`: it
+captures the exact observed epoch, presents the global invalidation consequence,
+requires arm/confirm, connects off the render thread, submits once, and fences
+pending or uncertain outcomes until current authority state is inspected.
 
 `attenuate-authorize-once` is a bounded same-connection journey rather than a
 grant-management command. It observes the exact epoch, issues a parent grant,

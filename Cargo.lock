@@ -91,6 +91,7 @@ dependencies = [
 name = "aegis-tui"
 version = "0.1.0"
 dependencies = [
+ "aegis-admin-command",
  "aegis-client",
  "aegis-protocol",
  "crossterm",

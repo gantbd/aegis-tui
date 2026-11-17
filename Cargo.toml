@@ -13,6 +13,7 @@ description = "Composable read-only terminal presentation for Aegis authority st
 
 [dependencies]
 aegis-client = { version = "=0.1.0", path = "../aegis/crates/aegis-client" }
+aegis-admin-command = { version = "=0.1.0", path = "../aegis/crates/aegis-admin-command" }
 aegis-protocol = { version = "=0.1.0", path = "../aegis/crates/aegis-protocol" }
 ratatui = { version = "=0.30.2", default-features = false }
 crossterm = "=0.29.0"

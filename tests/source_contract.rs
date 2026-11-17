@@ -1,10 +1,10 @@
 #[test]
-fn reusable_component_is_read_only_and_application_free() {
+fn reusable_observation_component_is_read_only_and_application_free() {
     let source = include_str!("../src/lib.rs");
     assert!(source.contains("ReadOnlyClient"));
     assert!(!source.contains("AuthorityClient"));
     assert!(!source.contains("AdminClient"));
-    assert!(!source.contains("RevokeEpoch"));
+    assert!(!source.contains("CommandV1::RevokeEpoch"));
     assert!(source.contains("NextPage"));
     assert!(source.contains("PreviousPage"));
     assert!(!source.contains("ratatui::run"));
@@ -12,13 +12,19 @@ fn reusable_component_is_read_only_and_application_free() {
 }
 
 #[test]
-fn authority_command_guards_are_owned_by_aegis_not_presentation() {
+fn reusable_control_calls_only_the_aegis_owned_guard() {
     let workspace = include_str!("../Cargo.toml");
     let cli = include_str!("../cli/Cargo.toml");
-    assert!(!workspace.contains("admin-command"));
+    let control = include_str!("../src/revoke_control.rs");
+    assert!(workspace.contains("../aegis/crates/aegis-admin-command"));
     assert!(cli.contains("../../aegis/crates/aegis-admin-command"));
     assert!(cli.contains("../../aegis/applications/aegis-admin-session"));
     assert!(!workspace.contains("admin-session"));
+    assert!(control.contains("aegis_admin_command::{RevokeEpoch, RevokeError, revoke_epoch}"));
+    assert!(!control.contains("AdminClient"));
+    assert!(!control.contains("CommandV1::RevokeEpoch"));
+    assert!(control.contains("try_send(())"));
+    assert!(!control.contains("while let"));
     assert!(include_str!("../cli/src/main.rs").contains("aegis_admin_session::run"));
     assert!(
         !std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
